@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
+import re
 
 # Google Flights URL
 url = "https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI1LTExLTIwagwIAhIIL20vMGQ2bHByBwgBEgNKRksaIxIKMjAyNS0xMS0yN2oHCAESA0pGS3IMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQE&tfu=EgIIACIA"
@@ -49,11 +50,44 @@ try:
             if price.startswith("$"):
                 print(f"Price: {price}")
 
-        airline_elements = el.find_elements(By.CLASS_NAME, "sSHqwe.tPgKwe.ogfYpf")
-        for a in airline_elements:
-            text = a.text.strip()
-            if text:
-                print(f"Airline: {text}")
+        # Prefer airline from logo image 'alt' attribute when available
+        airline = None
+        try:
+            imgs = el.find_elements(By.TAG_NAME, "img")
+            for img in imgs:
+                alt = img.get_attribute("alt")
+                if alt and alt.strip():
+                    airline = alt.strip()
+                    break
+        except Exception:
+            airline = None
+
+        # Fallback: textual airline candidates, but filter out times/routes/durations
+        if not airline:
+            airline_elements = el.find_elements(By.CLASS_NAME, "sSHqwe.tPgKwe.ogfYpf")
+            for a in airline_elements:
+                text = a.text.strip()
+                if not text:
+                    continue
+                # Filter heuristics
+                # times like 6:29 AM, 06:29, or with +1
+                if re.search(r"\d{1,2}:\d{2}(?:\s*[APMapm\.]{2,4})?(?:\+\d)?", text):
+                    continue
+                # routes like SFO–JFK or SFO - JFK or 'to'
+                if '–' in text or '—' in text or '->' in text or ' to ' in text.lower() or re.search(r"[A-Z]{3}[-–—][A-Z]{3}", text):
+                    continue
+                # durations like '1 hr 54 min' or '54 min'
+                if re.search(r"\d+\s*(?:h|hr|hour|min)", text.lower()):
+                    continue
+                # strings composed mostly of digits/punctuation
+                if re.fullmatch(r"[\d\s:–—+\-]+", text):
+                    continue
+                # likely airline name
+                airline = text
+                break
+
+        if airline:
+            print(f"Airline: {airline}")
 
         time_elements = el.find_elements(By.CLASS_NAME, "zxVSec.YMlIz.tPgKwe.ogfYpf")
         for idx, t in enumerate(time_elements):
