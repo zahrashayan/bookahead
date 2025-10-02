@@ -1,3 +1,6 @@
+# Flight data CSVs
+flights_*.csv
+
 # Python
 __pycache__/
 *.py[cod]

@@ -3,135 +3,163 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
-import re
+import csv
+from datetime import datetime
+import os
 
 # Google Flights URL
 url = "https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI1LTExLTIwagwIAhIIL20vMGQ2bHByBwgBEgNKRksaIxIKMjAyNS0xMS0yN2oHCAESA0pGS3IMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQE&tfu=EgIIACIA"
 
 # Chrome options
 options = webdriver.ChromeOptions()
-# options.add_argument("--headless=new")
-# options.add_argument("--disable-gpu")
-# options.add_argument("--no-sandbox")
 options.add_argument("--start-maximized")
 
 driver = webdriver.Chrome(options=options)
 
+# List to store all flight data
+flights = []
+
+# CSV filename based on today's date only
+csv_filename = f'flights_{datetime.now().strftime("%Y%m%d")}.csv'
+
 try:
     driver.get(url)
     print("Opened Google Flights... waiting for prices to load")
-
-    # 3️⃣ Wait for all elements with aria-live="polite"
+    
+    # Wait for page to load
     wait = WebDriverWait(driver, 30)
-
-    # find elements by classname : zISZ5c QB2Jof
-    elements = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "zISZ5c.QB2Jof")))
-
-    # if inner text contains "more", click
-    for el in elements:
-        if "more" in el.text.lower():
-            print("Clicking 'more' button to load additional prices...")
-            el.click()
-
-    sleep(5)
-
-    # wait a bit more for prices to load
-    wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "pIav2d")))
-
-    # get all elements with class name pIav2d
-    elements_top = driver.find_elements(By.CLASS_NAME, "pIav2d")
-    print(f"Found {len(elements_top)} elements with class name 'pIav2d'")
-
-    for el in elements_top:
-        # get elements under class name YMlIz FpEdX
-        price_elements = el.find_elements(By.CLASS_NAME, "YMlIz.FpEdX")
-        for sub_el in price_elements:
-            price = sub_el.text.strip()
-            if price.startswith("$"):
-                print(f"Price: {price}")
-
-        # Prefer airline from logo image 'alt' attribute when available
-        airline = None
+    
+    try:
+        # Wait for initial content to load
+        wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "pIav2d")))
+        sleep(2)
+        
+        # Look for "more" buttons
         try:
-            imgs = el.find_elements(By.TAG_NAME, "img")
-            for img in imgs:
-                alt = img.get_attribute("alt")
-                if alt and alt.strip():
-                    airline = alt.strip()
+            elements = driver.find_elements(By.CSS_SELECTOR, ".zISZ5c.QB2Jof")
+            for el in elements:
+                if "more" in el.text.lower():
+                    print("Clicking 'more' button to load additional prices...")
+                    el.click()
+                    sleep(3)
+        except Exception as e:
+            print(f"No 'more' button found or couldn't click: {e}")
+    
+    except Exception as e:
+        print(f"Initial load error: {e}")
+    
+    # Get all flight result containers
+    elements_top = driver.find_elements(By.CLASS_NAME, "pIav2d")
+    print(f"Found {len(elements_top)} flight results\n")
+    
+    flight_count = 0
+    for idx, el in enumerate(elements_top, 1):
+        # Skip empty results
+        if not el.text.strip():
+            continue
+        
+        flight_count += 1
+        print(f"--- Flight {flight_count} ---")
+        
+        # Initialize flight data dictionary
+        flight_data = {
+            'flight_number': flight_count,
+            'price': '',
+            'airline': '',
+            'departure_time': '',
+            'arrival_time': '',
+            'stops': '',
+            'scraped_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # Get price
+        try:
+            price_elements = el.find_elements(By.CSS_SELECTOR, ".YMlIz.FpEdX")
+            for sub_el in price_elements:
+                text = sub_el.text.strip()
+                if text and "$" in text:
+                    price = text.replace("$", "").replace(",", "")
+                    flight_data['price'] = price
+                    print(f"Price: ${price}")
                     break
-        except Exception:
-            airline = None
-
-        # Fallback: textual airline candidates, but filter out times/routes/durations
-        if not airline:
-            airline_elements = el.find_elements(By.CLASS_NAME, "sSHqwe.tPgKwe.ogfYpf")
-            for a in airline_elements:
-                text = a.text.strip()
-                if not text:
-                    continue
-                # Filter heuristics
-                # times like 6:29 AM, 06:29, or with +1
-                if re.search(r"\d{1,2}:\d{2}(?:\s*[APMapm\.]{2,4})?(?:\+\d)?", text):
-                    continue
-                # routes like SFO–JFK or SFO - JFK or 'to'
-                if '–' in text or '—' in text or '->' in text or ' to ' in text.lower() or re.search(r"[A-Z]{3}[-–—][A-Z]{3}", text):
-                    continue
-                # durations like '1 hr 54 min' or '54 min'
-                if re.search(r"\d+\s*(?:h|hr|hour|min)", text.lower()):
-                    continue
-                # strings composed mostly of digits/punctuation
-                if re.fullmatch(r"[\d\s:–—+\-]+", text):
-                    continue
-                # likely airline name
-                airline = text
-                break
-
-        if airline:
-            print(f"Airline: {airline}")
-
-        time_elements = el.find_elements(By.CLASS_NAME, "zxVSec.YMlIz.tPgKwe.ogfYpf")
-        for idx, t in enumerate(time_elements):
-            time_text = t.text.strip()
-            if not time_text:
-                continue
-            if idx == 0:
-                print(f"Departure: {time_text}")
-            elif idx == 1:
-                print(f"Arrival: {time_text}")
-
-        stop_elements = el.find_elements(By.CLASS_NAME, "EfT7Ae.AdWm1c.tPgKwe")
-        for s in stop_elements:
-            stop_text = s.text.strip()
-            if stop_text:
-                print(f"Stops: {stop_text}")
-
-    # 4️⃣ Look for first element that looks like a price
-    price_text = None
-    for el in elements:
-        text = el.text.strip()
-        if text.startswith("from $"):
-            price_text = text
-            break
-
-    # 5️⃣ Print result
-    if price_text:
-        clean_price = int(price_text.replace("from $", "").replace(",", ""))
-        print(f"✅ Flight price found: {clean_price}")
+        except Exception as e:
+            print(f"Price error: {e}")
+        
+        # Get airline (only first one - actual airline name)
+        try:
+            airline_elements = el.find_elements(By.CSS_SELECTOR, ".sSHqwe.tPgKwe.ogfYpf")
+            if airline_elements:
+                airline = airline_elements[0].text.strip()
+                flight_data['airline'] = airline
+                print(f"Airline: {airline}")
+        except Exception as e:
+            print(f"Airline error: {e}")
+        
+        # Get times
+        try:
+            time_elements = el.find_elements(By.CSS_SELECTOR, ".zxVSec.YMlIz.tPgKwe.ogfYpf")
+            times = [t.text.strip() for t in time_elements if t.text.strip()]
+            
+            if times:
+                time_str = " ".join(times)
+                if "–" in time_str:
+                    parts = time_str.split("–")
+                    departure = parts[0].strip()
+                    arrival = parts[1].strip()
+                    flight_data['departure_time'] = departure
+                    flight_data['arrival_time'] = arrival
+                    print(f"Departure: {departure}")
+                    print(f"Arrival: {arrival}")
+                else:
+                    flight_data['departure_time'] = time_str
+                    print(f"Time: {time_str}")
+        except Exception as e:
+            print(f"Time error: {e}")
+        
+        # Get stops
+        try:
+            stop_elements = el.find_elements(By.CSS_SELECTOR, ".EfT7Ae.AdWm1c.tPgKwe")
+            for s in stop_elements:
+                stop_text = s.text.strip()
+                if stop_text:
+                    flight_data['stops'] = stop_text
+                    print(f"Stops: {stop_text}")
+        except Exception as e:
+            print(f"Stops error: {e}")
+        
+        # Add flight to list
+        flights.append(flight_data)
+        print()  # Blank line between flights
+    
+    # Append to CSV (or create if doesn't exist)
+    if flights:
+        file_exists = os.path.isfile(csv_filename)
+        
+        with open(csv_filename, 'a', newline='', encoding='utf-8') as f:
+            fieldnames = ['flight_number', 'price', 'airline', 'departure_time', 
+                         'arrival_time', 'stops', 'scraped_at']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            
+            # Only write header if file is new
+            if not file_exists:
+                writer.writeheader()
+            
+            writer.writerows(flights)
+        
+        if file_exists:
+            print(f"\n✅ Appended {len(flights)} flights to {csv_filename}")
+        else:
+            print(f"\n✅ Created {csv_filename} with {len(flights)} flights")
+        
+        print(f"📊 This session's price range: ${min(f['price'] for f in flights if f['price'])} - ${max(f['price'] for f in flights if f['price'])}")
     else:
-        print("❌ No price element matched 'from $...'")
-
-# YMlIz FpEdX jLMuyc --> green
-# YMlIz FpEdX --> normal
-# button --> zISZ5c QB2Jof
+        print("\n❌ No flights found to save")
 
 except Exception as e:
-    print("❌ Error while scraping:", e)
+    print(f"❌ Error while scraping: {e}")
+    import traceback
+    traceback.print_exc()
 
-# finally:
-#     driver.quit()
-
-# keep window open
+# Keep window open
 input("Press Enter to close the browser and exit...")
-
-
-
+driver.quit()
