@@ -3,8 +3,14 @@
 BookAhead predicts **when is the best time to book a flight** for the lowest price.
 
 It scrapes real data from Google Flights a few times a day for selected routes  
-(SFO → NYC, SFO → ISB, and SFO → SAN). Each run logs flight prices for multiple departure dates at different hours (morning, noon, evening, late night).  
-The data is cleaned, processed, and used to train small route-specific machine learning models. It is important because flight prices are not random — they follow patterns based on time, weekday, and proximity to travel. By combining scraping with ML, BookAhead aims to forecast the best day to buy your ticket, instead of relying on guesswork.
+(SFO → NYC, SFO → ISB, and SFO → SAN). Each run logs flight prices for multiple departure dates  
+at different hours (morning, noon, evening, late night).
+
+The data is cleaned, processed, and used to train small route-specific machine learning models.  
+It is important because flight prices are not random — they follow patterns based on time, weekday,  
+and proximity to travel. By combining scraping with ML, BookAhead aims to forecast  
+the best day to buy your ticket, instead of relying on guesswork.
+
 ---
 
 ## What this project does
