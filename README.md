@@ -48,7 +48,6 @@ the best day to buy your ticket, instead of relying on guesswork.
     python src/ml/pipeline.py
 
 ## Example Output 
-    ```bash
     ==================== SFO-NYC ====================
     MAE:  $20.01
     RMSE: $21.18
