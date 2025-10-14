@@ -11,7 +11,7 @@ from datetime import datetime
 import os
 
 # list of routes + urls to scrape (in flight_config.py)
-from scrapers.flight_config import FLIGHTS_TO_TRACK
+from flight_config import FLIGHTS_TO_TRACK
 
 # setup chrome driver
 options = webdriver.ChromeOptions()

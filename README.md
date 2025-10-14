@@ -54,3 +54,17 @@ the best day to buy your ticket, instead of relying on guesswork.
     RMSE: $21.18
     R²:   -0.004
     ✓ Saved model for SFO-NYC → models/rf_SFO_NYC.pkl
+
+## 5. To run the linear regression model
+    ```bash
+    python src/ml/linear_regression.py
+
+### Linear Regression
+- Captures overall pricing trends clearly and gives interpretable relationships between variables like booking day, departure day, and days until travel.  
+- Performs more consistently when the dataset is small or the relationships are mostly linear.  
+- Ideal for building a baseline understanding of flight price behavior before adding complexity.  
+
+### Random Forest
+- Handles complex and non-linear relationships better once there’s enough data (i still need more data)  
+- Can model route-specific and time-based pricing fluctuations more effectively as more samples are collected.  
+- Needs larger, more diverse data to outperform simpler models like Linear Regression.
