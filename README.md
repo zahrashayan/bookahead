@@ -55,8 +55,7 @@ the best day to buy your ticket, instead of relying on guesswork.
     R²:   -0.004
     ✓ Saved model for SFO-NYC → models/rf_SFO_NYC.pkl
 
-## 5. To run the linear regression model
-    ```bash
+### 5. To run the linear regression model
     python src/ml/linear_regression.py
 
 ### Linear Regression
