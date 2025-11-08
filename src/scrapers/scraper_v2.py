@@ -79,14 +79,14 @@ try:
                 pass
         
         except Exception as e:
-            print(f"   ⚠️ Error loading page: {e}")
+            print(f"   Error loading page: {e}")
             continue
         
         # collect all visible flight cards
         flight_elements = driver.find_elements(By.CLASS_NAME, "pIav2d")
         
         if not flight_elements:
-            print(f"   ⚠️ No flights found")
+            print(f"   No flights found")
             continue
         
         flights_found = 0
@@ -171,9 +171,9 @@ try:
         # quick summary for that route/date scrape
         if prices:
             print(f"   ✓ Found {flights_found} flights")
-            print(f"   💰 Price range: ${min(prices):.0f} - ${max(prices):.0f}")
+            print(f"   Price range: ${min(prices):.0f} - ${max(prices):.0f}")
         else:
-            print(f"   ⚠️ Found {flights_found} flights but no prices")
+            print(f"   Found {flights_found} flights but no prices")
         
         print()
         sleep(2)
@@ -201,7 +201,7 @@ finally:
         print(f"   Saved {len(all_flights)} total flights to {csv_filename}")
         all_prices = [float(f['price']) for f in all_flights if f['price']]
         if all_prices:
-            print(f"   📊 Overall price range: ${min(all_prices):.0f} - ${max(all_prices):.0f}")
+            print(f"   Overall price range: ${min(all_prices):.0f} - ${max(all_prices):.0f}")
         print(f"{'='*60}\n")
     else:
         print(f"\n❌ No flights found to save\n")
