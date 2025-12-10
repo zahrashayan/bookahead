@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 
 # paths to raw csv and the cleaned parquet file
-RAW = os.path.join(os.path.dirname(__file__), '../../data/raw/flights_data.csv')
+RAW = os.path.join(os.path.dirname(__file__), '../../data/raw/flights_data_cleaned.csv')
 INTERIM = os.path.join(os.path.dirname(__file__), '../../data/interim/best_today.parquet')
 
 def main():
