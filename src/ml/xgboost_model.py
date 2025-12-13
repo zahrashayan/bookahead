@@ -50,7 +50,7 @@ def main():
     for route in df['route'].unique():
         sub = df[df['route'] == route].copy()
         if len(sub) < 10:
-            print(f"⚠️  Skipping {route} (only {len(sub)} rows)\n")
+            print(f"Skipping {route} (only {len(sub)} rows)\n")
             continue
 
         print(f"{'='*70}")
@@ -149,7 +149,7 @@ def main():
         print(f"Average MAE: ${results_df['mae'].mean():.2f}")
     
     print("\n" + "="*70)
-    print("✅ XGBoost training complete!")
+    print("XGBoost training complete!")
     print("="*70 + "\n")
 
 if __name__ == "__main__":
