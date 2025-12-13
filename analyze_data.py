@@ -1,13 +1,12 @@
 """
 BookAhead Data Analysis Script
-Run this to understand your flight data quality and characteristics
 """
 
 import pandas as pd
 import numpy as np
 from datetime import datetime
 
-# Load your data
+# Load  data
 df = pd.read_csv('data/raw/flights_data_cleaned.csv')
 
 print("=" * 80)
