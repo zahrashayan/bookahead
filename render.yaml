@@ -1,13 +1,8 @@
 services:
   - type: web
     name: bookahead-api
-    env: python
+    env: docker
     plan: free
-    buildCommand: ""
-    startCommand: uvicorn src.ml_api:app --host 0.0.0.0 --port 10000
-    envVars:
-      - key: PORT
-        value: 10000
-    build:
-      pythonVersion: 3.11.5
+    dockerfilePath: ./Dockerfile
+
 
