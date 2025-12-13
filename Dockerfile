@@ -1,28 +1,31 @@
 # Use Python 3.11 base image
 FROM python:3.11-slim
 
-# Set working directory
-WORKDIR /app
+# Prevents interactive prompts during package installs
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install build essentials for scikit-learn, xgboost, etc.
-RUN apt-get update && apt-get install -y \
+# Install system dependencies for scikit-learn to build C extensions if needed
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    gcc \
+    g++ \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first (for caching)
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install them
 COPY requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
-
-# Copy the rest of your app
+# Copy the rest of the app
 COPY . .
 
-# Expose port (match your uvicorn port)
+# Expose the app port
 EXPOSE 10000
 
-# Start command
+# Start the app
 CMD ["uvicorn", "src.ml_api:app", "--host", "0.0.0.0", "--port", "10000"]
+
 
