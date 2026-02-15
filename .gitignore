@@ -21,3 +21,42 @@ data/large/
 
 # Secrets
 secrets.json
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Anaconda
+anaconda_projects/
+
+# Environment
+.env
+*.env
+
+# Data (optional - depends on size)
+# data/raw/*.csv
+# data/interim/*.parquet
+
+# Models (optional - can be large)
+# models/*.pkl
