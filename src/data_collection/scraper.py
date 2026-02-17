@@ -179,7 +179,7 @@ try:
         sleep(2)
 
 except Exception as e:
-    print(f"\n❌ Critical error: {e}")
+    print(f"\n Critical error: {e}")
     import traceback
     traceback.print_exc()
 
@@ -197,14 +197,14 @@ finally:
             writer.writerows(all_flights)
         
         print(f"{'='*60}")
-        print(f"✅ SUCCESS!")
+        print(f" SUCCESS!")
         print(f"   Saved {len(all_flights)} total flights to {csv_filename}")
         all_prices = [float(f['price']) for f in all_flights if f['price']]
         if all_prices:
             print(f"   Overall price range: ${min(all_prices):.0f} - ${max(all_prices):.0f}")
         print(f"{'='*60}\n")
     else:
-        print(f"\n❌ No flights found to save\n")
+        print(f"\n No flights found to save\n")
     
     input("Press Enter to close the browser...")
     driver.quit()
