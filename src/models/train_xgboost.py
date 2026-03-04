@@ -134,7 +134,7 @@ def main():
         y_pred = pipe.predict(X_test)
 
         # ====================================================================
-        # EVALUATION 
+        # EVALUATION OF MODEL
         # ====================================================================
         eval_results = evaluate_model(y_test, y_pred, model_name=f"XGBoost-{route}")
         

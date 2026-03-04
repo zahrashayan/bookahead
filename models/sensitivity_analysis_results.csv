@@ -1,0 +1,11 @@
+Feature Removed,MAE Without,MAE Impact,Dir.Acc Without,Dir.Acc Impact,Important?
+price_vs_min,70.87,22.79,0.863,-0.077, YES
+price_pct_change,52.25,4.18,0.942,0.002, YES
+days_until_squared,50.39,2.32,0.943,0.004, YES
+price_cv,49.13,1.06,0.943,0.004, YES
+airline_count,48.87,0.8,0.943,0.003,No
+flight_count,48.88,0.8,0.941,0.001,No
+booking_urgency,48.45,0.38,0.944,0.004,No
+daily_price_points,48.17,0.1,0.944,0.004,No
+price_volatility_7d,47.95,-0.12,0.946,0.007,No
+price_slope,47.06,-1.01,0.949,0.009,No
