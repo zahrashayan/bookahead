@@ -1,4 +1,0 @@
-Route,Train_Size,Test_Size,MAE,Median_AE,Dir_Acc,R2,Over_Pred,Under_Pred
-SFO-ISB,427,107,18.47,5.53,1.0,0.98,10.47,-37.22
-SFO-NYC,429,108,8.88,6.64,0.926,-0.75,2.72,-9.25
-SFO-SAN,426,107,2.96,0.27,0.907,0.858,0.73,-5.23
