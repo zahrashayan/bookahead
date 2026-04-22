@@ -1,68 +1,276 @@
 # BookAhead
 
-BookAhead predicts **when is the best time to book a flight** for the lowest price.
+BookAhead is a flight-price timing project focused on answering a specific question:
 
-It scrapes real data from Google Flights a few times a day for selected routes  
-(SFO → NYC, SFO → ISB, and SFO → SAN). Each run logs flight prices for multiple departure dates  
-at different hours (morning, noon, evening, late night).
+`When is the best time to book a flight?`
 
-The data is cleaned, processed, and used to train small route-specific machine learning models.  
-It is important because flight prices are not random — they follow patterns based on time, weekday,  
-and proximity to travel. By combining scraping with ML, BookAhead aims to forecast  
-the best day to buy your ticket, instead of relying on guesswork.
+The repo currently contains an end-to-end prototype pipeline that:
 
----
+- collects fare snapshots for a small set of routes
+- cleans and aggregates those snapshots into a modeling dataset
+- engineers time-based and pricing-dynamics features
+- trains route-specific baseline and XGBoost models
+- saves trained artifacts and experiment outputs
+- exposes a prototype Streamlit app and a minimal FastAPI prediction endpoint
 
-## What this project does
+This is best described as a research / product prototype rather than a production system.
 
-1. **Scrape live flight prices**  
-   Using Selenium, it pulls airline, price, stops, and flight times from Google Flights.
+## Current State
 
-2. **Clean + structure data**  
-   Converts raw scraped data into a tidy dataset that includes:
-   - days until departure  
-   - weekday/weekend patterns  
-   - time-of-day effects
+What is working today:
 
-3. **Train predictive models**  
-   Currently, a Random Forest Regressor is trained **per route** to learn price behavior over time (will expand)
+- Selenium-based flight scraping for a limited, hardcoded set of routes and dates
+- data preparation into a parquet panel dataset
+- baseline model training with Linear Regression and Random Forest
+- stronger route-specific XGBoost training with engineered proxy features
+- evaluation utilities for MAE, RMSE, directional accuracy, and asymmetric error analysis
+- experiment scripts for hyperparameter tuning and sensitivity analysis
+- a demo-style Streamlit UI in `app.py`
 
----
+## Repository Layout
 
-## How to run
+```text
+bookahead/
+├── app.py
+├── architecture.md
+├── config/
+│   └── settings.py
+├── data/
+│   ├── interim/
+│   ├── processed/
+│   └── raw/
+├── figures/
+├── models/
+├── scripts/
+├── src/
+│   ├── data_collection/
+│   │   ├── scraper.py
+│   │   └── scraper_config.py
+│   ├── data_processing/
+│   │   ├── feature_engineering.py
+│   │   └── prepare_panel.py
+│   ├── models/
+│   │   ├── evaluate.py
+│   │   ├── hyperparameter_tuning.py
+│   │   ├── sensitivity_analysis.py
+│   │   ├── train_baseline.py
+│   │   ├── train_random_forest.py
+│   │   └── train_xgboost.py
+│   ├── prediction/
+│   │   └── api.py
+│   └── utils/
+└── README.md
+```
 
-1. Install dependencies:
-   ```bash
-   pip install pandas numpy scikit-learn pyarrow selenium joblib matplotlib
+## Data Flow
 
-2. To run the scraper 
-    ```bash 
-    python src/scrapers/scraper_v2.py
+The current workflow looks like this:
 
-3. To clean and prepare
-    ```bash
-    python src/ml/prepare_panel.py
+```text
+Selenium scraper
+    -> raw CSV files
+    -> cleaned / prepared panel data
+    -> feature engineering + proxy features
+    -> per-route model training
+    -> saved model artifacts
+    -> prototype UI / API inference
+```
 
-4. To train the model
-    ```bash
-    python src/ml/pipeline.py
+## Routes Covered Right Now
 
-## Example Output 
-    ==================== SFO-NYC ====================
-    MAE:  $20.01
-    RMSE: $21.18
-    R²:   -0.004
-    ✓ Saved model for SFO-NYC → models/rf_SFO_NYC.pkl
+The current scraper config is intentionally small and route-specific. It tracks these routes:
 
-### 5. To run the linear regression model
-    python src/ml/linear_regression.py
+- `SFO -> NYC`
+- `SFO -> SAN`
+- `SFO -> ISB`
 
-### Linear Regression
-- Captures overall pricing trends clearly and gives interpretable relationships between variables like booking day, departure day, and days until travel.  
-- Performs more consistently when the dataset is small or the relationships are mostly linear.  
-- Ideal for building a baseline understanding of flight price behavior before adding complexity.  
+Each route also uses a small set of hardcoded departure dates defined in `src/data_collection/scraper_config.py`.
 
-### Random Forest
-- Handles complex and non-linear relationships better once there’s enough data (i still need more data)  
-- Can model route-specific and time-based pricing fluctuations more effectively as more samples are collected.  
-- Needs larger, more diverse data to outperform simpler models like Linear Regression.
+## Modeling Approach
+
+### Baselines
+
+The repo includes two baseline modeling approaches:
+
+- Linear Regression: `src/models/train_baseline.py`
+- Random Forest: `src/models/train_random_forest.py`
+
+These provide simple reference points before using the stronger XGBoost model.
+
+### Main Model
+
+The main modeling script is:
+
+- `src/models/train_xgboost.py`
+
+This script trains a separate XGBoost model per route using:
+
+- temporal features like `days_until`, `book_dow`, `depart_dow`, `depart_woy`
+- competition proxies like `airline_count`, `flight_count`, `price_cv`
+- scarcity / momentum proxies like `price_slope`, `price_volatility_7d`, `price_pct_change`
+- urgency and non-linear features like `booking_urgency` and `days_until_squared`
+- holiday indicators such as `holiday_category` and `is_major_holiday`
+
+### Evaluation
+
+Evaluation logic lives in:
+
+- `src/models/evaluate.py`
+
+Current metrics include:
+
+- MAE
+- Median Absolute Error
+- RMSE
+- R2
+- MAPE
+- Directional Accuracy
+- asymmetric over- vs under-prediction analysis
+
+## Experiment Scripts
+
+The repo also includes experiment / analysis scripts:
+
+- `src/models/hyperparameter_tuning.py`
+  Tests XGBoost hyperparameter combinations with time-series cross-validation.
+
+- `src/models/sensitivity_analysis.py`
+  Measures how model performance changes when proxy features are added or removed.
+
+## App and API
+
+### Streamlit Demo App
+
+The demo UI is:
+
+- `app.py`
+
+It currently lets you:
+
+- choose a route
+- choose a departure date
+- generate a predicted price
+- view simple booking guidance
+- inspect a trend-style visualization
+
+### FastAPI Endpoint
+
+The API prototype is:
+
+- `src/prediction/api.py`
+
+## Setup
+
+### 1. Create and activate a virtual environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### 2. Install dependencies
+
+The current `requirements.txt` covers the core model / API stack.
+
+```bash
+pip install -r requirements.txt
+```
+
+Depending on what you want to run, you may also need additional packages used elsewhere in the repo:
+
+```bash
+pip install streamlit plotly selenium pyarrow matplotlib
+```
+
+If you plan to run scraping locally, you will also need a working Chrome / ChromeDriver setup that matches your Selenium environment.
+
+## How To Run
+
+### 1. Run the scraper
+
+```bash
+python src/data_collection/scraper.py
+```
+
+Notes:
+
+- the scraper is currently browser-driven and route-config based
+- it writes raw flight data under `data/raw/`
+- it is not yet designed as a headless, production-grade ingestion service
+
+### 2. Prepare the panel dataset
+
+```bash
+python src/data_processing/prepare_panel.py
+```
+
+This script reads the cleaned raw flight file and writes:
+
+- `data/interim/best_today.parquet`
+
+### 3. Train the baseline linear model
+
+```bash
+python src/models/train_baseline.py
+```
+
+### 4. Train the Random Forest baseline
+
+```bash
+python src/models/train_random_forest.py
+```
+
+### 5. Train the XGBoost models
+
+```bash
+python src/models/train_xgboost.py
+```
+
+Saved model artifacts are written under:
+
+- `models/`
+
+### 6. Run hyperparameter tuning
+
+```bash
+python src/models/hyperparameter_tuning.py
+```
+
+### 7. Run sensitivity analysis
+
+```bash
+python src/models/sensitivity_analysis.py
+```
+
+### 8. Launch the Streamlit app
+
+```bash
+streamlit run app.py
+```
+
+### 9. Launch the FastAPI server
+
+```bash
+uvicorn src.prediction.api:app --reload
+```
+
+## Outputs
+
+This repo currently stores several kinds of outputs:
+
+- trained model artifacts in `models/`
+- experiment summaries such as:
+  - `models/xgboost_results_with_proxy_features.csv`
+  - `models/hyperparameter_tuning_results.csv`
+  - `models/sensitivity_analysis_results.csv`
+- generated figures and exploratory plots
+
+## Recommended Entry Points
+
+If you are new to the repo, these are the best files to start with:
+
+- `src/data_collection/scraper.py`
+- `src/data_processing/prepare_panel.py`
+- `src/models/train_xgboost.py`
+- `src/models/evaluate.py`
+- `app.py`

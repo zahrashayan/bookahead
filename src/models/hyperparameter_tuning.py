@@ -65,7 +65,7 @@ def cross_validate_with_time_splits(df, params, num_feats, cat_feats, route, n_s
 
 def main():
     print("\n" + "="*70)
-    print("HYPERPARAMETER TUNING WITH CROSS-VALIDATION")
+    print("Hyperparameter tuning with cross-validation")
     print("="*70)
     
     df = pd.read_parquet(DATA_PATH)
@@ -80,7 +80,7 @@ def main():
     num_feats = base_features + proxy_features
     cat_feats = ['route_O', 'route_D']
     
-    # HYPERPARAMETER GRID - Test these combinations
+    # Hyperparameter Grid (test these combinations)
     param_grid = {
         'learning_rate': [0.01, 0.05, 0.1],
         'max_depth': [3, 5, 7],
@@ -139,9 +139,9 @@ def main():
         
         print(f"  → Average MAE: ${avg_mae:.2f} | Dir.Acc: {avg_dir_acc:.1%}")
     
-    # RESULTS
+    # Results
     print("\n" + "="*70)
-    print("CROSS-VALIDATION RESULTS")
+    print("Cross-validation results")
     print("="*70)
     
     results_df = pd.DataFrame(all_results)
@@ -151,10 +151,10 @@ def main():
     print("-"*70)
     print(results_df.head(10).to_string(index=False))
     
-    # Best config
+    # Best configuration
     best = results_df.iloc[0]
     print("\n" + "="*70)
-    print("⭐ BEST CONFIGURATION:")
+    print("Best configuration:")
     print("="*70)
     print(f"  Learning Rate:     {best['learning_rate']}")
     print(f"  Max Depth:         {int(best['max_depth'])}")

@@ -1,12 +1,12 @@
 """
-XGBoost Model - Advanced gradient boosting for flight price prediction
+XGBoost Main Model - Advanced gradient boosting for flight price prediction
 """
 
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-import os
+import os 
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
