@@ -155,6 +155,7 @@ The app and API now share the same core prediction path:
 - inference-time feature assembly: `src/prediction/feature_builder.py`
 - model loading: `src/prediction/model_registry.py`
 - prediction orchestration: `src/prediction/predictor.py`
+- booking recommendation logic: `src/prediction/recommendation.py`
 
 ### Streamlit Demo App
 
@@ -177,6 +178,7 @@ The API prototype is:
 - `src/prediction/api.py`
 
 It exposes the shared predictor through a `/predict` endpoint using the canonical `PredictionRequest` schema.
+The response includes the predicted price, historical feature context, and the same booking recommendation guidance used by the app.
 
 ## Setup
 
@@ -226,6 +228,20 @@ python src/data_processing/prepare_panel.py
 This script reads the cleaned raw flight file and writes:
 
 - `data/interim/best_today.parquet`
+
+### 3. Train the baseline linear model
+
+### Optional: Build the inference route-context table
+
+```bash
+python src/data_processing/build_route_context.py
+```
+
+This writes a narrower inference table to:
+
+- `data/processed/route_context_features.parquet`
+
+When this file exists, the prediction layer uses it for faster historical context lookups. If it does not exist, prediction falls back to `data/interim/best_today.parquet`.
 
 ### 3. Train the baseline linear model
 

@@ -44,6 +44,8 @@ BASELINE_CATEGORICAL_FEATURES = ["route_O", "route_D"]
 BASELINE_ALL_FEATURES = BASELINE_NUMERIC_FEATURES + BASELINE_CATEGORICAL_FEATURES
 
 PROXY_FEATURE_LOOKUP_COLUMNS = [
+    "route",
+    "departure_date",
     "scraped_date",
     "scraped_time",
     TARGET_COLUMN,

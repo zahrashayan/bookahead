@@ -1,29 +1,14 @@
-# Flight data CSVs
-flights_*.csv
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
-venv/
-.env
-.DS_Store
-
-# Jupyter
-.ipynb_checkpoints/
-
-# VS Code
-.vscode/
-
-# Data (do not commit large raw data)
-data/raw/
-data/large/
-
-# Secrets
-secrets.json
-# Python
-__pycache__/
-*.pyc
 *.pyo
 *.pyd
 .Python
@@ -32,31 +17,32 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.venv/
+venv/
+
+# Environment / secrets
+.env
+*.env
+secrets.json
 
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Local archives and duplicate exports
+*.zip
+models results/
 
-# OS
-.DS_Store
-Thumbs.db
+# Generated scrape outputs and large data
+flights_*.csv
+data/large/
+data/raw/
+data/interim/*_BAD.parquet
 
-# Anaconda
-anaconda_projects/
+# Generated inference context outputs
+data/processed/*.parquet
+data/processed/*.csv
+!data/processed/.gitkeep
 
-# Environment
-.env
-*.env
-
-# Data (optional - depends on size)
-# data/raw/*.csv
-# data/interim/*.parquet
-
-# Models (optional - can be large)
+# Optional model artifacts generated during local experiments
 # models/*.pkl

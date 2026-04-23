@@ -21,6 +21,7 @@ ML-powered flight price prediction with a shared, history-backed inference path.
 │      • model_registry.py - Load cached models    │
 │      • feature_builder.py - Assemble features    │
 │      • proxy_feature_service.py - Proxy signals  │
+│      • recommendation.py - Booking guidance      │
 │      • history_repository.py - Route history     │
 │      • api.py - REST API endpoints               │
 └─────────────────┬────────────────────────────────┘
@@ -111,9 +112,14 @@ Added 10 proxy features to capture pricing dynamics airlines use:
 Raw CSV → Clean → Add Proxy Features → Train XGBoost → Evaluate (MAE) → Save Models
 ```
 
+**Inference context:**
+```
+Prepared Panel → Build Route Context Table → data/processed/route_context_features.parquet
+```
+
 **Prediction:**
 ```
-User Input → Request Schema → Historical Route Lookup → Proxy Features → Build Feature Row → Load Model → Predict → Display
+User Input → Request Schema → Historical Route Lookup → Proxy Features → Build Feature Row → Load Model → Predict → Recommend → Display/API Response
 ```
 
 ---

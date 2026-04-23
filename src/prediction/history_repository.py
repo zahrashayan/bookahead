@@ -8,19 +8,29 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.common.features import route_code
+from src.common.features import PROXY_FEATURE_LOOKUP_COLUMNS, route_code
 
 
 INTERIM_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "interim" / "best_today.parquet"
+CONTEXT_DATA_PATH = (
+    Path(__file__).resolve().parents[2] / "data" / "processed" / "route_context_features.parquet"
+)
 
 
 @lru_cache(maxsize=1)
 def load_route_context_table() -> pd.DataFrame:
     """Load the prepared panel once and normalize key datetime fields."""
-    if not INTERIM_DATA_PATH.exists():
-        raise FileNotFoundError(f"Prepared dataset not found: {INTERIM_DATA_PATH}")
+    data_path = CONTEXT_DATA_PATH if CONTEXT_DATA_PATH.exists() else INTERIM_DATA_PATH
+    if not data_path.exists():
+        raise FileNotFoundError(f"Route context dataset not found: {data_path}")
 
-    df = pd.read_parquet(INTERIM_DATA_PATH).copy()
+    df = pd.read_parquet(data_path).copy()
+    missing_columns = [col for col in PROXY_FEATURE_LOOKUP_COLUMNS if col not in df.columns]
+    if missing_columns:
+        raise ValueError(
+            f"Route context dataset is missing required columns: {', '.join(missing_columns)}"
+        )
+
     df["scraped_date"] = pd.to_datetime(df["scraped_date"])
     df["departure_date"] = pd.to_datetime(df["departure_date"])
     df["route"] = df["route"].astype(str)
