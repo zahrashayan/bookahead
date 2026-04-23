@@ -15,6 +15,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import TimeSeriesSplit
 import xgboost as xgb
+from src.common.features import CATEGORICAL_FEATURES, TARGET_COLUMN, XGBOOST_NUMERIC_FEATURES
 from src.models.evaluate import evaluate_model
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/interim/best_today.parquet')
@@ -27,7 +28,7 @@ def cross_validate_with_time_splits(df, params, num_feats, cat_feats, route, n_s
     sub = sub.sort_values('scraped_date')  # Sort by time
     
     X = sub[num_feats + cat_feats]
-    y = sub['min_price']
+    y = sub[TARGET_COLUMN]
     
     # Time series split (respects chronological order)
     tscv = TimeSeriesSplit(n_splits=n_splits)
@@ -70,15 +71,8 @@ def main():
     
     df = pd.read_parquet(DATA_PATH)
     
-    # Features
-    base_features = ['days_until', 'book_dow', 'depart_dow', 'depart_woy']
-    proxy_features = [
-        'price_slope', 'price_volatility_7d', 'price_pct_change',
-        'price_vs_min', 'daily_price_points', 'airline_count',
-        'booking_urgency', 'days_until_squared'
-    ]
-    num_feats = base_features + proxy_features
-    cat_feats = ['route_O', 'route_D']
+    num_feats = XGBOOST_NUMERIC_FEATURES
+    cat_feats = CATEGORICAL_FEATURES
     
     # Hyperparameter Grid (test these combinations)
     param_grid = {

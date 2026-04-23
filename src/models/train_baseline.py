@@ -4,6 +4,10 @@ Trains a simple linear regression model per route.
 Updated metrics per professor feedback: removed R², added directional accuracy and regret.
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 import os
 import numpy as np
 import pandas as pd
@@ -13,20 +17,16 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression
 import joblib
+from src.common.features import (
+    BASELINE_CATEGORICAL_FEATURES,
+    BASELINE_NUMERIC_FEATURES,
+    TARGET_COLUMN,
+)
+from src.common.splits import grouped_time_split
 
 # path to the cleaned dataset + where to save the trained models
 DATA_PATH  = os.path.join(os.path.dirname(__file__), '../../data/interim/best_today.parquet')
 MODELS_DIR = os.path.join(os.path.dirname(__file__), '../../models')
-
-def grouped_time_split(df, panel_col='panel', time_col='scraped_date', train_frac=0.8):
-    """Split data chronologically (not randomly) to avoid data leakage"""
-    panel_first = df.groupby(panel_col)[time_col].min().sort_values()
-    panels = panel_first.index.to_list()
-    cut = int(len(panels) * train_frac)
-    train_panels = set(panels[:cut])
-    train = df[df[panel_col].isin(train_panels)].copy()
-    test  = df[~df[panel_col].isin(train_panels)].copy()
-    return train, test
 
 def main():
     print("Loading data from:", DATA_PATH)
@@ -34,9 +34,9 @@ def main():
     print(f"Loaded {len(df):,} rows\n")
 
     # numeric and categorical features + target
-    num_feats = ['days_until','book_dow','depart_dow','depart_woy']
-    cat_feats = ['route_O','route_D']
-    target = 'min_price'
+    num_feats = BASELINE_NUMERIC_FEATURES
+    cat_feats = BASELINE_CATEGORICAL_FEATURES
+    target = TARGET_COLUMN
 
     # make sure models directory exists
     os.makedirs(MODELS_DIR, exist_ok=True)
@@ -114,7 +114,7 @@ def main():
         print("TOP 3 FEATURES BY IMPACT")
         print(f"{'─'*70}")
         
-        feature_names = num_feats + list(pipe.named_steps['pre'].get_feature_names_out())
+        feature_names = list(pipe.named_steps['pre'].get_feature_names_out())
         coefficients = pipe.named_steps['model'].coef_
         
         top_idx = np.argsort(np.abs(coefficients))[-3:][::-1]

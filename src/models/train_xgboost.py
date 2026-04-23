@@ -15,22 +15,21 @@ from sklearn.pipeline import Pipeline
 import xgboost as xgb
 import joblib
 
+from src.common.features import (
+    BASE_NUMERIC_FEATURES,
+    CATEGORICAL_FEATURES,
+    PROXY_NUMERIC_FEATURES,
+    TARGET_COLUMN,
+    XGBOOST_NUMERIC_FEATURES,
+)
+from src.common.splits import grouped_time_split
+
 # Import our new evaluation module
 from src.models.evaluate import evaluate_model, print_evaluation_report
 
 # load cleaned data + where to save models
 DATA_PATH  = os.path.join(os.path.dirname(__file__), '../../data/interim/best_today.parquet')
 MODELS_DIR = os.path.join(os.path.dirname(__file__), '../../models')
-
-def grouped_time_split(df, panel_col='panel', time_col='scraped_date', train_frac=0.8):
-    """Split data chronologically to avoid data leakage"""
-    panel_first = df.groupby(panel_col)[time_col].min().sort_values()
-    panels = panel_first.index.to_list()
-    cut = int(len(panels) * train_frac)
-    train_panels = set(panels[:cut])
-    train = df[df[panel_col].isin(train_panels)].copy()
-    test  = df[~df[panel_col].isin(train_panels)].copy()
-    return train, test
 
 def main():
     print("\n" + "="*70)
@@ -45,34 +44,13 @@ def main():
     # FEATURE SELECTION (INCLUDING PROXY FEATURES)
     # ========================================================================
     
-    # Basic temporal features
-    base_features = ['days_until', 'book_dow', 'depart_dow', 'depart_woy']
-    
-    # Proxy features for airline pricing dynamics
-    proxy_features = [
-        'price_slope',           # Inventory signal (steeper = fewer seats)
-        'price_volatility_7d',   # Scarcity signal
-        'price_pct_change',      # Momentum
-        'price_vs_min',          # Relative pricing
-        'daily_price_points',    # Availability
-        'airline_count',         # Competition
-        'flight_count',          # Competition
-        'price_cv',              # Price dispersion
-        'booking_urgency',       # < 14 days flag
-        'days_until_squared'     # Non-linear time effect
-    ]
-    
-    # Combine all numerical features
-    num_feats = base_features + proxy_features + ['is_major_holiday']
-
-    # Categorical features
-    cat_feats = ['route_O', 'route_D', 'holiday_category']
-    
-    target = 'min_price'
+    num_feats = XGBOOST_NUMERIC_FEATURES
+    cat_feats = CATEGORICAL_FEATURES
+    target = TARGET_COLUMN
 
     print("Feature breakdown:")
-    print(f"  • Base features: {len(base_features)}")
-    print(f"  • Proxy features: {len(proxy_features)}")
+    print(f"  • Base features: {len(BASE_NUMERIC_FEATURES)}")
+    print(f"  • Proxy features: {len(PROXY_NUMERIC_FEATURES)}")
     print(f"  • Categorical: {len(cat_feats)}")
     print(f"  • Total: {len(num_feats) + len(cat_feats)}\n")
 
@@ -154,7 +132,7 @@ def main():
             if idx < len(feature_names):
                 feat_name = feature_names[idx]
                 # Mark proxy features with *
-                marker = " *" if feat_name in proxy_features else ""
+                marker = " *" if feat_name in PROXY_NUMERIC_FEATURES else ""
                 print(f"  {i:2d}. {feat_name:<35} {importance[idx]:>8.4f}{marker}")
         print("-"*70)
         print("  * = Proxy feature for pricing dynamics")

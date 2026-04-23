@@ -15,18 +15,17 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 import xgboost as xgb
+from src.common.features import (
+    BASE_NUMERIC_FEATURES,
+    CATEGORICAL_FEATURES,
+    PROXY_NUMERIC_FEATURES,
+    TARGET_COLUMN,
+    XGBOOST_NUMERIC_FEATURES,
+)
+from src.common.splits import grouped_time_split
 from src.models.evaluate import evaluate_model
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/interim/best_today.parquet')
-
-def grouped_time_split(df, panel_col='panel', time_col='scraped_date', train_frac=0.8):
-    panel_first = df.groupby(panel_col)[time_col].min().sort_values()
-    panels = panel_first.index.to_list()
-    cut = int(len(panels) * train_frac)
-    train_panels = set(panels[:cut])
-    train = df[df[panel_col].isin(train_panels)].copy()
-    test  = df[~df[panel_col].isin(train_panels)].copy()
-    return train, test
 
 def train_and_evaluate(df, num_feats, cat_feats, route):
     """Train model and return MAE + Directional Accuracy"""
@@ -34,9 +33,9 @@ def train_and_evaluate(df, num_feats, cat_feats, route):
     train, test = grouped_time_split(sub)
     
     X_train = train[num_feats + cat_feats]
-    y_train = train['min_price']
+    y_train = train[TARGET_COLUMN]
     X_test  = test[num_feats + cat_feats]
-    y_test  = test['min_price']
+    y_test  = test[TARGET_COLUMN]
 
     pre = ColumnTransformer([
         ('num', 'passthrough', num_feats),
@@ -70,21 +69,10 @@ def main():
     print(f"Loaded {len(df):,} rows\n")
 
     # All features
-    base_features = ['days_until', 'book_dow', 'depart_dow', 'depart_woy']
-    proxy_features = [
-        'price_slope',
-        'price_volatility_7d',
-        'price_pct_change',
-        'price_vs_min',
-        'daily_price_points',
-        'airline_count',
-        'flight_count',
-        'price_cv',
-        'booking_urgency',
-        'days_until_squared'
-    ]
-    cat_feats = ['route_O', 'route_D']
-    all_num_feats = base_features + proxy_features
+    base_features = BASE_NUMERIC_FEATURES
+    proxy_features = PROXY_NUMERIC_FEATURES
+    cat_feats = CATEGORICAL_FEATURES
+    all_num_feats = XGBOOST_NUMERIC_FEATURES
 
     routes = sorted(df['route'].unique())
 
