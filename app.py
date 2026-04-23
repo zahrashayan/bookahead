@@ -5,11 +5,11 @@ Professional web interface for ML-powered flight booking
 
 import streamlit as st
 import pandas as pd
-import numpy as np
-import joblib
 from datetime import datetime, timedelta
-import os
 import plotly.graph_objects as go
+
+from src.prediction.predictor import predict
+from src.prediction.schemas import PredictionRequest
 
 # Page config
 st.set_page_config(
@@ -311,48 +311,17 @@ div[role="combobox"] * {
     </style>
 """, unsafe_allow_html=True)
 
-# Load models silently
-@st.cache_resource
-def load_models():
-    """Load all trained XGBoost models"""
-    models = {}
-    model_dir = 'models'
-    
-    for route in ['SFO-ISB', 'SFO-NYC', 'SFO-SAN']:
-        model_path = os.path.join(model_dir, f"xgb_{route.replace('-', '_')}.pkl")
-        try:
-            models[route] = joblib.load(model_path)
-        except:
-            pass
-    
-    return models
-
-models = load_models()
-
-# Helper function
-def predict_price(model, route, departure_date, booking_date=None):
-    """Predict price for a specific departure and booking date"""
-    if booking_date is None:
-        booking_date = datetime.now()
-    
-    departure_dt = datetime.combine(departure_date, datetime.min.time())
-    days_until = (departure_dt - booking_date).days
-    book_dow = booking_date.weekday()
-    depart_dow = departure_dt.weekday()
-    depart_woy = departure_dt.isocalendar()[1]
-    
-    route_o, route_d = route.split('-')
-    
-    input_data = pd.DataFrame({
-        'days_until': [days_until],
-        'book_dow': [book_dow],
-        'depart_dow': [depart_dow],
-        'depart_woy': [depart_woy],
-        'route_O': [route_o],
-        'route_D': [route_d]
-    })
-    
-    return model.predict(input_data)[0]
+@st.cache_data(show_spinner=False)
+def get_prediction_result(route, departure_date, booking_date=None):
+    """Run the canonical prediction path for a route/date request."""
+    origin, destination = route.split('-')
+    request = PredictionRequest(
+        origin=origin,
+        destination=destination,
+        departure_date=departure_date,
+        booking_date=booking_date,
+    )
+    return predict(request)
 
 # Sidebar - User Input
 st.sidebar.title("Flight Configuration")
@@ -387,17 +356,27 @@ days_until = (departure_dt - today).days
 book_dow = today.weekday()
 depart_dow = departure_dt.weekday()
 depart_woy = departure_dt.isocalendar()[1]
+day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 # Main content
 st.title("BookAhead")
 st.markdown("**ML-Powered Flight Price Prediction**")
 st.markdown("---")
 
-if route not in models:
+try:
+    prediction_result = get_prediction_result(route, departure_date)
+except FileNotFoundError:
+    prediction_result = None
     st.error("Model unavailable. Please check configuration.")
-else:
-    model = models[route]
-    predicted_price = predict_price(model, route, departure_date)
+except ValueError as exc:
+    prediction_result = None
+    st.error(f"Prediction unavailable: {exc}")
+except Exception as exc:
+    prediction_result = None
+    st.error(f"Prediction failed: {exc}")
+
+if prediction_result is not None:
+    predicted_price = prediction_result.predicted_price
     
     # Tabs for organization
     tab1, tab2, tab3 = st.tabs(["Overview", "Analytics", "Export"])
@@ -415,13 +394,11 @@ else:
             st.metric(label="Days Until Departure", value=f"{days_until}")
         
         with col3:
-            day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
             st.metric(label="Departure Day", value=day_names[depart_dow])
         
         with col4:
-            avg_historical = predicted_price * np.random.uniform(1.05, 1.15)
-            savings = avg_historical - predicted_price
-            st.metric(label="Historical Average", value=f"${avg_historical:.2f}", delta=f"-${savings:.2f}")
+            gap_to_best = float(prediction_result.feature_values["price_vs_min"])
+            st.metric(label="Gap vs Route Best", value=f"${gap_to_best:.2f}")
         
         st.markdown("---")
         
@@ -465,6 +442,7 @@ else:
             st.markdown(f"- Booking date: {today.strftime('%B %d, %Y')}")
             st.markdown(f"- Booking day: {day_names[book_dow]}")
             st.markdown(f"- Week of year: {depart_woy}")
+            st.markdown(f"- History rows used: {prediction_result.history_rows_used}")
         
         with col_b:
             st.markdown("**Travel Tips**")
@@ -483,72 +461,80 @@ else:
             max_days_back = min(90, days_until)
             
             for days_back in range(0, max_days_back + 1, 3):
-                booking_date = today - timedelta(days=days_back)
-                price = predict_price(model, route, departure_date, booking_date)
-                trend_days.append(days_until + days_back)
-                trend_prices.append(price)
+                booking_date = (today - timedelta(days=days_back)).date()
+                try:
+                    trend_result = get_prediction_result(route, departure_date, booking_date)
+                except ValueError:
+                    continue
+                trend_days.append((departure_date - booking_date).days)
+                trend_prices.append(trend_result.predicted_price)
             
-            trend_days.reverse()
-            trend_prices.reverse()
+            if trend_days:
+                trend_days.reverse()
+                trend_prices.reverse()
             
-            fig = go.Figure()
-            
-            fig.add_trace(go.Scatter(
-                x=trend_days,
-                y=trend_prices,
-                mode='lines',
-                name='Predicted Price',
-                line=dict(color='#3B82F6', width=3),
-                fill='tozeroy',
-                fillcolor='rgba(59, 130, 246, 0.1)'
-            ))
-            
-            fig.add_trace(go.Scatter(
-                x=[days_until],
-                y=[predicted_price],
-                mode='markers',
-                name='Current',
-                marker=dict(size=12, color='#EF4444', symbol='diamond')
-            ))
-            
-            if max(trend_days) >= 30:
-                fig.add_vrect(
-                    x0=30, x1=50,
-                    fillcolor="rgba(34, 197, 94, 0.1)",
-                    layer="below",
-                    line_width=0,
-                    annotation_text="Optimal Window",
-                    annotation_position="top left"
+                fig = go.Figure()
+                
+                fig.add_trace(go.Scatter(
+                    x=trend_days,
+                    y=trend_prices,
+                    mode='lines',
+                    name='Predicted Price',
+                    line=dict(color='#3B82F6', width=3),
+                    fill='tozeroy',
+                    fillcolor='rgba(59, 130, 246, 0.1)'
+                ))
+                
+                fig.add_trace(go.Scatter(
+                    x=[days_until],
+                    y=[predicted_price],
+                    mode='markers',
+                    name='Current',
+                    marker=dict(size=12, color='#EF4444', symbol='diamond')
+                ))
+                
+                if max(trend_days) >= 30:
+                    fig.add_vrect(
+                        x0=30, x1=50,
+                        fillcolor="rgba(34, 197, 94, 0.1)",
+                        layer="below",
+                        line_width=0,
+                        annotation_text="Optimal Window",
+                        annotation_position="top left"
+                    )
+                
+                fig.update_layout(
+                    xaxis_title="Days Until Departure",
+                    yaxis_title="Price (USD)",
+                    hovermode='x unified',
+                    height=450,
+                    showlegend=True,
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    font=dict(size=12, color="#374151")
                 )
-            
-            fig.update_layout(
-                xaxis_title="Days Until Departure",
-                yaxis_title="Price (USD)",
-                hovermode='x unified',
-                height=450,
-                showlegend=True,
-                plot_bgcolor='white',
-                paper_bgcolor='white',
-                font=dict(size=12, color="#374151")
-            )
-            
-            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#E5E7EB')
-            fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#E5E7EB')
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            min_price = min(trend_prices)
-            min_idx = trend_prices.index(min_price)
-            min_price_days = trend_days[min_idx]
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Lowest Predicted Price", f"${min_price:.2f}")
-            with col2:
-                st.metric("Best Booking Window", f"{min_price_days} days out")
-            with col3:
-                potential_savings = max(0, predicted_price - min_price)
-                st.metric("Potential Savings", f"${potential_savings:.2f}")
+                
+                fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#E5E7EB')
+                fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#E5E7EB')
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                min_price = min(trend_prices)
+                min_idx = trend_prices.index(min_price)
+                min_price_days = trend_days[min_idx]
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Lowest Predicted Price", f"${min_price:.2f}")
+                with col2:
+                    st.metric("Best Booking Window", f"{min_price_days} days out")
+                with col3:
+                    potential_savings = max(0, predicted_price - min_price)
+                    st.metric("Potential Savings", f"${potential_savings:.2f}")
+            else:
+                trend_days = []
+                trend_prices = []
+                st.info("Not enough historical context is available yet to render the booking trend.")
             
             st.markdown("---")
             
@@ -601,7 +587,8 @@ else:
                 'Recommendation': [recommendation],
                 'Analysis_Date': [today.date()],
                 'Departure_Day': [day_names[depart_dow]],
-                'Model_Accuracy_R2': [route_stats[route]['r2']]
+                'Model_Accuracy_R2': [route_stats[route]['r2']],
+                'History_Rows_Used': [prediction_result.history_rows_used]
             })
             
             st.download_button(
