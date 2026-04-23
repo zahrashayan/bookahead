@@ -1,7 +1,7 @@
 # BookAhead System Architecture
 
 ## Overview
-ML-powered flight price prediction with clear separation of concerns.
+ML-powered flight price prediction with a shared, history-backed inference path.
 
 ---
 
@@ -11,13 +11,24 @@ ML-powered flight price prediction with clear separation of concerns.
 │         USER INTERFACE (app.py)                  │
 │         • Route/date selection                   │
 │         • Price visualization                    │
+│         • Uses shared predictor                  │
 └─────────────────┬────────────────────────────────┘
                   ↓
 ┌──────────────────────────────────────────────────┐
 │      PREDICTION SERVICE (src/prediction/)        │
-│      • predictor.py - Load models, predict       │
-│      • recommendation.py - Booking advice        │
+│      • schemas.py - Request/response contract    │
+│      • predictor.py - Orchestrates inference     │
+│      • model_registry.py - Load cached models    │
+│      • feature_builder.py - Assemble features    │
+│      • proxy_feature_service.py - Proxy signals  │
+│      • history_repository.py - Route history     │
 │      • api.py - REST API endpoints               │
+└─────────────────┬────────────────────────────────┘
+                  ↓
+┌──────────────────────────────────────────────────┐
+│      SHARED CONTRACTS (src/common/)              │
+│      • features.py - Canonical feature schema    │
+│      • splits.py - Shared train/test split       │
 └─────────────────┬────────────────────────────────┘
                   ↓
 ┌──────────────────────────────────────────────────┐
@@ -25,24 +36,21 @@ ML-powered flight price prediction with clear separation of concerns.
 │       • train_xgboost.py - XGBoost training      │
 │       • train_baseline.py - Linear Regression    │
 │       • train_random_forest.py - RF baseline     │
-│       • evaluate.py - MAE, Dir. Accuracy         │
+│       • hyperparameter_tuning.py - CV search     │
+│       • sensitivity_analysis.py - Ablations      │
+│       • evaluate.py - Shared evaluation metrics  │
 └─────────────────┬────────────────────────────────┘
                   ↓
 ┌──────────────────────────────────────────────────┐
 │     DATA PROCESSING (src/data_processing/)       │
-│     • prepare_panel.py - Clean & aggregate       │
-│     • feature_engineering.py - Proxy features    │
+│     • prepare_panel.py - Clean, aggregate,       │
+│       and engineer route-level features          │
 └─────────────────┬────────────────────────────────┘
                   ↓
 ┌──────────────────────────────────────────────────┐
 │    DATA COLLECTION (src/data_collection/)        │
 │    • scraper.py - Web scraping                   │
 │    • scraper_config.py - Routes & settings       │
-└──────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────┐
-│    CONFIGURATION (config/settings.py)            │
-│    • Paths, hyperparameters, thresholds          │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -54,10 +62,10 @@ ML-powered flight price prediction with clear separation of concerns.
 |-------|---------------|---------------|
 | **Data Collection** | Web scraping | Can change data sources without touching ML |
 | **Data Processing** | Feature engineering | Can add features without retraining |
+| **Shared Contracts** | Canonical features and split logic | Keeps training and inference aligned |
 | **Model Training** | Train models offline | Experimentation doesn't affect production |
-| **Prediction** | Serve predictions online | Lightweight, fast, no training overhead |
+| **Prediction** | Serve predictions online | Reuses route history and one shared predictor |
 | **UI** | User interaction | Frontend changes don't affect backend |
-| **Config** | Central settings | Single source of truth |
 
 ---
 
@@ -88,7 +96,7 @@ Added 10 proxy features to capture pricing dynamics airlines use:
 **Primary Metrics:**
 - **MAE** - Average prediction error in dollars
 - **Median AE** - Robust to outliers  
-- **Directional Accuracy** - Predicting movement direction
+- **Directional Accuracy** - Matching sequential movement direction
 
 **Asymmetric Loss:**
 - Over-prediction (pred > actual): User waits, might miss deal
@@ -105,7 +113,7 @@ Raw CSV → Clean → Add Proxy Features → Train XGBoost → Evaluate (MAE) �
 
 **Prediction:**
 ```
-User Input → Load Model → Predict → Recommendation → Display
+User Input → Request Schema → Historical Route Lookup → Proxy Features → Build Feature Row → Load Model → Predict → Display
 ```
 
 ---
@@ -113,8 +121,8 @@ User Input → Load Model → Predict → Recommendation → Display
 ## File Structure
 ```
 bookahead/
-├── config/settings.py
 ├── src/
+│   ├── common/
 │   ├── data_collection/
 │   ├── data_processing/
 │   ├── models/

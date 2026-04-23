@@ -11,7 +11,7 @@ The repo currently contains an end-to-end prototype pipeline that:
 - engineers time-based and pricing-dynamics features
 - trains route-specific baseline and XGBoost models
 - saves trained artifacts and experiment outputs
-- exposes a prototype Streamlit app and a minimal FastAPI prediction endpoint
+- exposes a Streamlit app and FastAPI endpoint backed by a shared prediction service
 
 This is best described as a research / product prototype rather than a production system.
 
@@ -25,7 +25,8 @@ What is working today:
 - stronger route-specific XGBoost training with engineered proxy features
 - evaluation utilities for MAE, RMSE, directional accuracy, and asymmetric error analysis
 - experiment scripts for hyperparameter tuning and sensitivity analysis
-- a demo-style Streamlit UI in `app.py`
+- a shared prediction layer that uses historical route context at inference time
+- a Streamlit UI and FastAPI endpoint that both use the same prediction path
 
 ## Repository Layout
 
@@ -33,8 +34,6 @@ What is working today:
 bookahead/
 ├── app.py
 ├── architecture.md
-├── config/
-│   └── settings.py
 ├── data/
 │   ├── interim/
 │   ├── processed/
@@ -43,11 +42,13 @@ bookahead/
 ├── models/
 ├── scripts/
 ├── src/
+│   ├── common/
+│   │   ├── features.py
+│   │   └── splits.py
 │   ├── data_collection/
 │   │   ├── scraper.py
 │   │   └── scraper_config.py
 │   ├── data_processing/
-│   │   ├── feature_engineering.py
 │   │   └── prepare_panel.py
 │   ├── models/
 │   │   ├── evaluate.py
@@ -57,7 +58,13 @@ bookahead/
 │   │   ├── train_random_forest.py
 │   │   └── train_xgboost.py
 │   ├── prediction/
-│   │   └── api.py
+│   │   ├── api.py
+│   │   ├── feature_builder.py
+│   │   ├── history_repository.py
+│   │   ├── model_registry.py
+│   │   ├── predictor.py
+│   │   ├── proxy_feature_service.py
+│   │   └── schemas.py
 │   └── utils/
 └── README.md
 ```
@@ -70,10 +77,11 @@ The current workflow looks like this:
 Selenium scraper
     -> raw CSV files
     -> cleaned / prepared panel data
-    -> feature engineering + proxy features
+    -> historical route context with engineered proxy features
     -> per-route model training
     -> saved model artifacts
-    -> prototype UI / API inference
+    -> shared prediction service
+    -> Streamlit UI and FastAPI inference
 ```
 
 ## Routes Covered Right Now
@@ -124,7 +132,7 @@ Current metrics include:
 - RMSE
 - R2
 - MAPE
-- Directional Accuracy
+- Directional Accuracy based on sequential price movement
 - asymmetric over- vs under-prediction analysis
 
 ## Experiment Scripts
@@ -139,6 +147,15 @@ The repo also includes experiment / analysis scripts:
 
 ## App and API
 
+The app and API now share the same core prediction path:
+
+- request schema: `src/prediction/schemas.py`
+- historical route lookup: `src/prediction/history_repository.py`
+- proxy feature extraction: `src/prediction/proxy_feature_service.py`
+- inference-time feature assembly: `src/prediction/feature_builder.py`
+- model loading: `src/prediction/model_registry.py`
+- prediction orchestration: `src/prediction/predictor.py`
+
 ### Streamlit Demo App
 
 The demo UI is:
@@ -149,7 +166,7 @@ It currently lets you:
 
 - choose a route
 - choose a departure date
-- generate a predicted price
+- generate a price prediction using historical route context
 - view simple booking guidance
 - inspect a trend-style visualization
 
@@ -158,6 +175,8 @@ It currently lets you:
 The API prototype is:
 
 - `src/prediction/api.py`
+
+It exposes the shared predictor through a `/predict` endpoint using the canonical `PredictionRequest` schema.
 
 ## Setup
 
@@ -253,6 +272,24 @@ streamlit run app.py
 ```bash
 uvicorn src.prediction.api:app --reload
 ```
+
+## Shared Prediction Layer
+
+The prediction system now uses historical route context at inference time instead of relying only on calendar features.
+
+The current flow is:
+
+```text
+User request
+    -> PredictionRequest
+    -> route/departure history lookup from best_today.parquet
+    -> proxy feature extraction
+    -> feature row assembly
+    -> route-specific model load
+    -> prediction result
+```
+
+This keeps the app and API aligned with the richer XGBoost feature contract used during training.
 
 ## Outputs
 
