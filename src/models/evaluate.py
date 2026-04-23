@@ -4,7 +4,6 @@ Implements evaluation metrics focused on prediction accuracy and direction
 """
 
 import numpy as np
-import pandas as pd
 from sklearn.metrics import mean_absolute_error, median_absolute_error, mean_squared_error, r2_score
 
 
@@ -38,19 +37,23 @@ def evaluate_model(y_true, y_pred, model_name="Model"):
     # Asymmetric loss analysis
     asymmetric = analyze_asymmetric_loss(y_true, y_pred)
     
-    # Percentage errors
-    mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+    # Percentage errors - ignore zero denominators if they ever appear
+    nonzero_mask = y_true != 0
+    if np.any(nonzero_mask):
+        mape = np.mean(np.abs((y_true[nonzero_mask] - y_pred[nonzero_mask]) / y_true[nonzero_mask])) * 100
+    else:
+        mape = 0.0
     
     results = {
         'model_name': model_name,
-        'MAE': round(mae, 2),
-        'Median_AE': round(median_ae, 2),
-        'RMSE': round(rmse, 2),
-        'R2': round(r2, 3),
-        'MAPE': round(mape, 2),
-        'Directional_Accuracy': round(directional_acc, 3),
-        'Avg_Over_Prediction': round(asymmetric['avg_over_pred'], 2),
-        'Avg_Under_Prediction': round(asymmetric['avg_under_pred'], 2),
+        'MAE': float(round(mae, 2)),
+        'Median_AE': float(round(median_ae, 2)),
+        'RMSE': float(round(rmse, 2)),
+        'R2': float(round(r2, 3)),
+        'MAPE': float(round(mape, 2)),
+        'Directional_Accuracy': float(round(directional_acc, 3)),
+        'Avg_Over_Prediction': float(round(asymmetric['avg_over_pred'], 2)),
+        'Avg_Under_Prediction': float(round(asymmetric['avg_under_pred'], 2)),
         'Over_Pred_Count': asymmetric['over_pred_count'],
         'Under_Pred_Count': asymmetric['under_pred_count']
     }
@@ -70,17 +73,20 @@ def calculate_directional_accuracy(y_true, y_pred):
     Returns:
         Directional accuracy (0 to 1)
     """
-    # Compare if prediction is above/below mean correctly
-    mean_true = np.mean(y_true)
-    
-    # True direction: above or below mean
-    true_direction = y_true > mean_true
-    pred_direction = y_pred > mean_true
-    
-    # Accuracy
+    if len(y_true) < 2 or len(y_pred) < 2:
+        return 0.0
+
+    true_changes = np.diff(y_true)
+    pred_changes = np.diff(y_pred)
+
+    if len(true_changes) == 0:
+        return 0.0
+
+    true_direction = np.sign(true_changes)
+    pred_direction = np.sign(pred_changes)
+
     directional_acc = np.mean(true_direction == pred_direction)
-    
-    return directional_acc
+    return float(directional_acc)
 
 
 def analyze_asymmetric_loss(y_true, y_pred):
