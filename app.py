@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import plotly.graph_objects as go
 
 from src.prediction.predictor import predict
+from src.prediction.recommendation import make_booking_recommendation
 from src.prediction.schemas import PredictionRequest
 
 # Page config
@@ -377,6 +378,7 @@ except Exception as exc:
 
 if prediction_result is not None:
     predicted_price = prediction_result.predicted_price
+    booking_recommendation = make_booking_recommendation(prediction_result)
     
     # Tabs for organization
     tab1, tab2, tab3 = st.tabs(["Overview", "Analytics", "Export"])
@@ -404,24 +406,11 @@ if prediction_result is not None:
         
         # Recommendation
         st.subheader("Booking Recommendation")
-        
-        if days_until > 60:
-            recommendation = "MONITOR PRICES"
-            explanation = "Booking window is far out. Prices may fluctuate. Check back in 2-3 weeks for better rates."
-            status = "info"
-        elif days_until > 30:
-            recommendation = "GOOD TIME TO BOOK"
-            explanation = "You're in the optimal booking window. Prices are stable and competitive."
-            status = "success"
-        elif days_until > 14:
-            recommendation = "BOOK SOON"
-            explanation = "Prices may rise soon. Consider booking within the next week."
-            status = "warning"
-        else:
-            recommendation = "BOOK NOW"
-            explanation = "Close to departure. Prices usually spike now."
-            status = "error"
-        
+
+        recommendation = booking_recommendation.recommendation
+        explanation = booking_recommendation.explanation
+        status = booking_recommendation.status
+
         if status == "success":
             st.success(f"**{recommendation}**")
         elif status == "warning":
@@ -432,6 +421,7 @@ if prediction_result is not None:
             st.info(f"**{recommendation}**")
         
         st.markdown(explanation)
+        st.caption(f"Recommendation confidence: {booking_recommendation.confidence}")
         
         st.markdown("---")
         
@@ -443,6 +433,7 @@ if prediction_result is not None:
             st.markdown(f"- Booking day: {day_names[book_dow]}")
             st.markdown(f"- Week of year: {depart_woy}")
             st.markdown(f"- History rows used: {prediction_result.history_rows_used}")
+            st.markdown(f"- Price momentum: {prediction_result.feature_values['price_pct_change']:.1%}")
         
         with col_b:
             st.markdown("**Travel Tips**")
