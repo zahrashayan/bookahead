@@ -6,6 +6,7 @@ Professional web interface for ML-powered flight booking
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
+from pathlib import Path
 import plotly.graph_objects as go
 
 from src.prediction.predictor import predict
@@ -324,6 +325,38 @@ def get_prediction_result(route, departure_date, booking_date=None):
     )
     return predict(request)
 
+
+@st.cache_data(show_spinner=False)
+def load_route_performance_metrics():
+    """Load route-level training metrics from the latest XGBoost results file."""
+    results_path = Path("models/xgboost_results_with_proxy_features.csv")
+    if not results_path.exists():
+        return {}
+
+    df = pd.read_csv(results_path)
+    metrics = {}
+    for _, row in df.iterrows():
+        route = row["Route"]
+        dir_acc = float(row["Dir_Acc"])
+        mae = float(row["MAE"])
+        r2 = float(row["R2"])
+
+        if dir_acc >= 0.95 and mae <= 10:
+            status = "Excellent"
+        elif dir_acc >= 0.90 and mae <= 40:
+            status = "Good"
+        else:
+            status = "Moderate"
+
+        metrics[route] = {
+            "r2": r2,
+            "mae": mae,
+            "dir_acc": dir_acc,
+            "status": status,
+        }
+
+    return metrics
+
 # Sidebar - User Input
 st.sidebar.title("Flight Configuration")
 st.sidebar.markdown("---")
@@ -363,6 +396,8 @@ day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
 st.title("BookAhead")
 st.markdown("**ML-Powered Flight Price Prediction**")
 st.markdown("---")
+
+route_stats = load_route_performance_metrics()
 
 try:
     prediction_result = get_prediction_result(route, departure_date)
@@ -530,24 +565,22 @@ if prediction_result is not None:
             st.markdown("---")
             
             st.subheader("Route Performance Metrics")
-            
-            route_stats = {
-                'SFO-NYC': {'r2': 0.409, 'mae': 4, 'status': 'Moderate'},
-                'SFO-SAN': {'r2': 0.687, 'mae': 7, 'status': 'Excellent'},
-                'SFO-ISB': {'r2': 0.638, 'mae': 139, 'status': 'Good'}
-            }
-            
-            stats = route_stats[route]
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Model Accuracy (R²)", f"{stats['r2']:.1%}")
-            with col2:
-                st.metric("Average Error", f"${stats['mae']}")
-            with col3:
-                st.metric("Status", stats['status'])
-            
-            st.markdown("*Model trained on 1,600+ observations using XGBoost*")
+
+            stats = route_stats.get(route)
+            if stats:
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Model Accuracy (R²)", f"{stats['r2']:.1%}")
+                with col2:
+                    st.metric("Average Error", f"${stats['mae']:.2f}")
+                with col3:
+                    st.metric("Directional Accuracy", f"{stats['dir_acc']:.1%}")
+                with col4:
+                    st.metric("Status", stats["status"])
+
+                st.markdown("*Route metrics loaded from the latest XGBoost training results.*")
+            else:
+                st.info("Route performance metrics are not available yet. Re-run model training to populate them.")
         
         else:
             st.info("Enable 'Show Analytics' in the sidebar to view detailed analysis.")
@@ -563,13 +596,10 @@ if prediction_result is not None:
             st.markdown(f"Route: {route}")
             st.markdown(f"Price: ${predicted_price:.2f}")
             st.markdown(f"Departure: {departure_date}")
-            
-            route_stats = {
-                'SFO-NYC': {'r2': 0.409},
-                'SFO-SAN': {'r2': 0.687},
-                'SFO-ISB': {'r2': 0.638}
-            }
-            
+
+            route_r2 = route_stats.get(route, {}).get("r2")
+            route_mae = route_stats.get(route, {}).get("mae")
+            route_dir_acc = route_stats.get(route, {}).get("dir_acc")
             export_data = pd.DataFrame({
                 'Route': [route],
                 'Departure_Date': [departure_date],
@@ -578,7 +608,9 @@ if prediction_result is not None:
                 'Recommendation': [recommendation],
                 'Analysis_Date': [today.date()],
                 'Departure_Day': [day_names[depart_dow]],
-                'Model_Accuracy_R2': [route_stats[route]['r2']],
+                'Model_Accuracy_R2': [route_r2],
+                'Model_MAE': [route_mae],
+                'Model_Directional_Accuracy': [route_dir_acc],
                 'History_Rows_Used': [prediction_result.history_rows_used]
             })
             
