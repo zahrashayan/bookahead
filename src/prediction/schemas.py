@@ -26,3 +26,12 @@ class PredictionResult(BaseModel):
     departure_date: date
     history_rows_used: int
     feature_values: dict
+
+
+class PredictionAPIResponse(PredictionResult):
+    """Public API response schema including booking guidance."""
+
+    recommendation: str
+    recommendation_status: str
+    recommendation_explanation: str
+    recommendation_confidence: str

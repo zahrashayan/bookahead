@@ -2,21 +2,22 @@ from fastapi import FastAPI, HTTPException
 
 from src.prediction.predictor import predict
 from src.prediction.recommendation import make_booking_recommendation
-from src.prediction.schemas import PredictionRequest
+from src.prediction.schemas import PredictionAPIResponse, PredictionRequest
 
 app = FastAPI(title="Flight Price Prediction API")
 
-@app.post("/predict")
+@app.post("/predict", response_model=PredictionAPIResponse)
 def predict_price(data: PredictionRequest):
     try:
         result = predict(data)
         recommendation = make_booking_recommendation(result)
-        payload = result.model_dump()
-        payload["recommendation"] = recommendation.recommendation
-        payload["recommendation_status"] = recommendation.status
-        payload["recommendation_explanation"] = recommendation.explanation
-        payload["recommendation_confidence"] = recommendation.confidence
-        return payload
+        return PredictionAPIResponse(
+            **result.model_dump(),
+            recommendation=recommendation.recommendation,
+            recommendation_status=recommendation.status,
+            recommendation_explanation=recommendation.explanation,
+            recommendation_confidence=recommendation.confidence,
+        )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:

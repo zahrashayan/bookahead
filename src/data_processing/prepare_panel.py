@@ -5,6 +5,9 @@ import os
 import pandas as pd
 import numpy as np
 
+from src.data_processing.build_route_context import OUTPUT_PATH as ROUTE_CONTEXT_OUTPUT_PATH
+from src.data_processing.build_route_context import build_route_context_table
+
 # paths
 RAW = os.path.join(os.path.dirname(__file__), '../../data/raw/flights_data_cleaned.csv')
 INTERIM = os.path.join(os.path.dirname(__file__), '../../data/interim/best_today.parquet')
@@ -168,8 +171,14 @@ def main():
     # save cleaned data to parquet file
     os.makedirs(os.path.dirname(INTERIM), exist_ok=True)
     best.to_parquet(INTERIM, index=False)
+
+    # keep the inference context table aligned with the latest prepared panel
+    route_context = build_route_context_table()
+    os.makedirs(os.path.dirname(ROUTE_CONTEXT_OUTPUT_PATH), exist_ok=True)
+    route_context.to_parquet(ROUTE_CONTEXT_OUTPUT_PATH, index=False)
     
     print(f"\n✓ Saved {len(best):,} rows with {len(best.columns)} features → {INTERIM}")
+    print(f"✓ Saved {len(route_context):,} route-context rows → {ROUTE_CONTEXT_OUTPUT_PATH}")
     print("\nNew proxy features added:")
     print("  • airline_count (competition)")
     print("  • flight_count (competition)")
@@ -185,6 +194,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
